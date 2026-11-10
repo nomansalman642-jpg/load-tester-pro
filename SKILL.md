@@ -1,6 +1,6 @@
 ---
 name: load-tester-pro
-description: Inspect a web app or API project, design and run authorized, controlled load tests, find performance bottlenecks, and produce actionable reports. Use after building or before deploying a web app/API when checking capacity, latency, error rates, bottlenecks, or regression under concurrent traffic.
+description: Test web app/API user journeys end to end, then design and run authorized, controlled load tests, find bottlenecks, and report results. Use after building or before deploying to verify app flows and assess performance, latency, errors, and concurrency.
 ---
 
 # Load Tester Pro
@@ -23,11 +23,19 @@ Inspect repository docs, package/build manifests, routes/controllers, authentica
 
 Summarize discovered endpoints and risks. Mark unknowns explicitly. Ask only for missing information needed to establish safe target, authorization, or test ceiling.
 
-### 2. Agree performance budgets
+### 2. Validate the user flow
+
+Map the requested or critical journey into observable steps (for example: landing page → sign-in with a test account → search → submit a test form → verify the resulting state). For each step, define a success assertion: expected page/element, status, response schema, or safe persisted test record. Check navigation, session handling, validation, loading/error states, and that the flow reaches its intended outcome. Never infer that the app works merely because its homepage loads.
+
+Prefer the project's existing end-to-end test framework (such as Playwright or Cypress). If none exists, use a browser-capable tool for a small functional walkthrough or create a minimal maintainable test when appropriate. Run the flow with a single test user first. Use synthetic data and isolated test accounts; do not trigger real payments, emails/SMS, destructive actions, or production side effects. Report blocked steps and distinguish app failures from test/setup problems.
+
+After the journey passes functionally, translate the same critical path into a bounded load scenario. Preserve step order, authentication/session correlation, realistic pacing, and checks at each critical step. Avoid sharing one mutable account/state among concurrent users; use isolated or parameterized test identities where writes are approved. If a flow includes unsafe side effects, test only a safe read-only equivalent or stop and ask for a test-mode setup.
+
+### 3. Agree performance budgets
 
 Ask for or propose measurable goals: throughput, p50/p95/p99 latency, error rate, test duration, and resource limits. Keep user-provided targets distinct from suggested defaults. A reasonable starter gate for a simple API is p95 < 1 s and HTTP failure rate < 1%, but these are examples, not universal SLOs. Record test environment, build/revision, date, data set, and monitoring source.
 
-### 3. Select a tool and model a realistic scenario
+### 4. Select a tool and model a realistic scenario
 
 Prefer a tool already installed or used by the project. Otherwise, choose a maintainable option such as k6 (JavaScript) or Locust (Python); explain installation needs before adding dependencies. Use realistic think time, pacing, ramp-up, and workload mix. Avoid unbounded loops and uncontrolled arrival rates. Use unique test data when writes are explicitly approved. Handle tokens/cookies securely and correlate dynamic IDs; never hard-code credentials or commit secrets.
 
@@ -40,27 +48,27 @@ A practical staged plan is:
 
 Do not treat a generic 50-user, 5-minute test as safe for every app.
 
-### 4. Establish baseline and monitor
+### 5. Establish baseline and monitor
 
 Run one-user smoke first. Confirm expected status codes and response checks, then capture latency percentiles and error rate. Before larger tests, ensure CPU, memory, database connections/latency, and relevant provider quotas can be observed. Where metrics are unavailable, state the limitation and do not claim root-cause certainty.
 
-### 5. Execute within the approved envelope
+### 6. Execute within the approved envelope
 
 Use only the confirmed host and paths. Enforce concurrency, rate, and duration ceilings in the script/tool itself. Keep traffic gradual and bounded. Avoid running tests in parallel unless explicitly approved and safe. Record command, tool/version, configuration, start/end time, and test revision. Stop on any safety trigger.
 
-### 6. Analyze and report
+### 7. Analyze and report
 
 Report total requests, throughput, p50/p95/p99, error count/rate, status distribution, timeouts, and resource metrics when available. Compare results to agreed budgets. Separate observations from hypotheses; correlate slow endpoints with server/database metrics before naming a cause. Identify the first bottleneck, likely impact, confidence, and prioritized remediation. Recommend a retest after changes.
 
 Use this concise report structure:
 
 1. Scope and authorization (target/environment, endpoints, ceiling, duration)
-2. Scenario and tool/configuration
-3. Results versus budgets
-4. Failures and bottleneck evidence (or monitoring gaps)
+2. User-flow steps and functional pass/fail results
+3. Load scenario and tool/configuration
+4. Results versus budgets, failures, and bottleneck evidence (or monitoring gaps)
 5. Prioritized fixes and retest plan
 
-### 7. Optional CI smoke test
+### 8. Optional CI smoke test
 
 Only add CI configuration when requested. Keep CI tests short and low-load against a dedicated test environment. Store credentials in the CI secret manager, never in repository files. Set explicit thresholds and prevent a test from targeting production by default. Do not trigger deployment or modify infrastructure without approval.
 
@@ -69,4 +77,5 @@ Only add CI configuration when requested. Keep CI tests short and low-load again
 - Treat test accounts/data as disposable; avoid cleanup that could delete real data.
 - Keep generated scripts and reports out of source control unless requested; never include tokens, cookies, private hostnames, or personal data in reports.
 - For browser-heavy experiences, use browser automation for functional flow validation, but prefer protocol-level tools for repeatable load. Do not launch hundreds of real browsers by default.
+- Validate the full critical user journey at low volume before using it as a load scenario; report functional correctness separately from performance.
 - Explain that a passing test proves only the tested build, environment, workload, and duration; it does not guarantee future capacity.

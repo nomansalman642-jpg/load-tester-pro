@@ -1,6 +1,6 @@
 # Load Tester Pro
 
-An agent skill for planning and running **authorized, controlled** performance tests against web apps and APIs. It guides an AI coding agent to inspect a project, select representative journeys, establish measurable budgets, run bounded tests, watch service health, and report bottlenecks with evidence.
+An agent skill for validating critical web app/API user journeys and running **authorized, controlled** load tests. It guides an AI coding agent to inspect a project, verify the end-to-end flow at low volume, then replay that journey with bounded traffic, monitor service health, and report bottlenecks with evidence.
 
 ## Safety first
 
@@ -13,7 +13,9 @@ This repository follows the Agent Skills `SKILL.md` layout. Use your agent's doc
 ## What it does
 
 - Inspects project routes, runtime, test data, and monitoring without exposing secrets.
+- Verifies critical user flows step by step with functional assertions before load testing.
 - Creates a staged plan from a one-user smoke test through an explicitly approved load/stress scenario.
+- Uses the validated critical journey as a realistic, paced load scenario when safe.
 - Prefers existing tools; otherwise suggests tools such as k6 or Locust.
 - Reports latency percentiles, throughput, failures, monitoring limits, and prioritized remediation.
 - Can add a CI smoke test only when requested and against a dedicated test environment.
