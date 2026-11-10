@@ -48,6 +48,20 @@ A practical staged plan is:
 
 Do not treat a generic 50-user, 5-minute test as safe for every app.
 
+### Bundled execution scripts
+
+The skill bundle includes `scripts/k6/user-flow.js`, `scripts/locust/locustfile.py`, and guarded launchers `scripts/run-k6.sh` / `scripts/run-locust.sh`. Adapt `FLOW_PATHS` to the validated, safe GET steps in the user's journey; templates are read-only and do not perform login, writes, payments, or external messaging. Keep real credentials out of command history and repository files.
+
+After the exact target, authorization, endpoints, and test ceiling are approved, begin with defaults (1 user, 30 seconds). For example:
+
+```bash
+LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 FLOW_PATHS='/,/health' bash scripts/run-k6.sh
+# Or, if Locust is installed:
+LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 FLOW_PATHS='/,/health' bash scripts/run-locust.sh
+```
+
+The launchers require explicit authorization, limit concurrency to 10 users and duration to 120 seconds, and pace requests. Set `VUS`/`USERS`, `DURATION`/`RUN_TIME`, and `FLOW_PATHS` only within the confirmed envelope. The k6 template aborts when its error-rate threshold is exceeded; Locust stops on HTTP 429 or 5xx. Do not bypass these bounds or run a wider test without renewed approval. If a journey needs authentication or writes, adapt it only for an isolated test environment and use test-only identities/data; never hard-code secrets.
+
 ### 5. Establish baseline and monitor
 
 Run one-user smoke first. Confirm expected status codes and response checks, then capture latency percentiles and error rate. Before larger tests, ensure CPU, memory, database connections/latency, and relevant provider quotas can be observed. Where metrics are unavailable, state the limitation and do not claim root-cause certainty.
