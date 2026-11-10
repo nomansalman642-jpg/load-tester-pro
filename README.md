@@ -8,7 +8,17 @@ Use only on systems you own or have explicit permission to test. Prefer local or
 
 ## Install
 
-This repository follows the Agent Skills `SKILL.md` layout. Use your agent's documented skill installer/import flow if available. Otherwise, copy or symlink this repository's `SKILL.md` into the agent's supported skills directory under `load-tester-pro/` (for example, a project-level `.claude/skills/load-tester-pro/` for Claude Code or `.agents/skills/load-tester-pro/` for agents that support that convention). For Codex, Manus, or other agents, use the skill-directory/import mechanism supported by your current agent version; exact discovery paths can vary. Restart or refresh the agent if needed.
+This repository follows the Agent Skills `SKILL.md` layout and includes copies in these requested adapter directories:
+
+- `.claude/skills/load-tester-pro/SKILL.md`
+- `.claudecode/skills/load-tester-pro/SKILL.md`
+- `.codex/skills/load-tester-pro/SKILL.md`
+- `.manus/skills/load-tester-pro/SKILL.md`
+- `.opencode/skills/load-tester-pro/SKILL.md`
+- `.cline/skills/load-tester-pro/SKILL.md`
+- `.ai-agent/skills/load-tester-pro/SKILL.md`
+
+Use the skill import/discovery method supported by your current agent version; the custom `.claudecode`, `.manus`, and `.ai-agent` paths are repository packaging conventions and may need manual import. If your agent uses a different documented location, copy the root `SKILL.md` there. Restart or refresh the agent if needed. All bundled copies should match the root `SKILL.md`.
 
 ## What it does
 
