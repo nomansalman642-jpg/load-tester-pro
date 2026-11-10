@@ -33,7 +33,11 @@ jobs:
       - name: Check Python and shell syntax
         run: |
           python -m py_compile scripts/locust/locustfile.py
+          python -m py_compile scripts/locust/checkout_auth_flow.py scripts/summarize_results.py
           bash -n scripts/run-k6.sh scripts/run-locust.sh
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
 
       - name: Check k6 JavaScript syntax
         run: node --input-type=module --check < scripts/k6/user-flow.js

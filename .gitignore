@@ -1,6 +1,7 @@
 .env
 *.log
 reports/
+results/
 
 # Python-generated files
 __pycache__/

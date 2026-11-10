@@ -1,6 +1,6 @@
 ---
 name: load-tester-pro
-description: Test web app/API user journeys end to end, then design and run authorized, controlled load tests, find bottlenecks, and report results. Use after building or before deploying to verify app flows and assess performance, latency, errors, and concurrency.
+description: Test web app/API user journeys end to end, run authorized bounded load tests, summarize k6/Locust JSON results, and find bottlenecks. Use after building or before deploying to verify app flows, authentication/checkout in test mode, performance, latency, errors, and concurrency.
 ---
 
 # Load Tester Pro
@@ -11,7 +11,7 @@ Assess performance only for systems the user owns or is explicitly authorized to
 
 1. Identify the exact base URL/environment and confirm the user has authority to test it. If the target is production, shared, or third-party, ask for explicit authorization and a safe test window before sending traffic.
 2. Inspect for rate limits, provider quotas, autoscaling costs, data writes, emails/SMS, payment actions, and other side effects. Never exercise real checkout, destructive operations, account creation at scale, or external messaging. Use seeded test accounts and isolated data; prefer read-only routes.
-3. Define a hard ceiling before execution: virtual users/concurrency, request rate, duration, and allowed endpoints. If the user has not specified a scope, propose a small smoke test (1 VU, at most 1 minute, low request rate) and ask before running any broader test. Do not silently escalate.
+3. Define a hard ceiling before execution: exact target URL, exact approved URL, virtual users/concurrency, request rate, duration, and allowed endpoints. Require `TARGET_BASE_URL` to exactly match the user-approved `APPROVED_TARGET_URL`; do not infer approval from a hostname or a flag alone. If the user has not specified a scope, propose a small smoke test (1 VU, at most 1 minute, low request rate) and ask before running any broader test. Do not silently escalate.
 4. Stop immediately on sustained 5xx errors, unexpected writes/side effects, service degradation, rate-limit responses, resource exhaustion, or user request. Do not attempt denial-of-service, evasion, distributed traffic, or bypassing protections.
 5. If the agent cannot safely execute traffic from its environment, generate scripts/instructions and ask the user to run them in the target's approved environment instead.
 
@@ -50,17 +50,21 @@ Do not treat a generic 50-user, 5-minute test as safe for every app.
 
 ### Bundled execution scripts
 
-The skill bundle includes `scripts/k6/user-flow.js`, `scripts/locust/locustfile.py`, and guarded launchers `scripts/run-k6.sh` / `scripts/run-locust.sh`. Adapt `FLOW_PATHS` to the validated, safe GET steps in the user's journey; templates are read-only and do not perform login, writes, payments, or external messaging. Keep real credentials out of command history and repository files.
+The skill bundle includes `scripts/k6/user-flow.js`, read-only `scripts/locust/locustfile.py`, guarded checkout/auth `scripts/locust/checkout_auth_flow.py`, and launchers `scripts/run-k6.sh` / `scripts/run-locust.sh`. The read-only templates issue GET requests only. The checkout/auth flow performs POST writes and a test-payment request; only run it on an explicitly approved local/staging target with pre-seeded disposable accounts, test-write authorization, and a verified payment sandbox/test endpoint. It must never call a live payment provider. Keep real credentials out of command history and repository files.
 
 After the exact target, authorization, endpoints, and test ceiling are approved, begin with defaults (1 user, 30 seconds). For example:
 
 ```bash
-LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 FLOW_PATHS='/,/health' bash scripts/run-k6.sh
+LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 APPROVED_TARGET_URL=http://127.0.0.1:8000 FLOW_PATHS='/,/health' bash scripts/run-k6.sh
 # Or, if Locust is installed:
-LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 FLOW_PATHS='/,/health' bash scripts/run-locust.sh
+LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 APPROVED_TARGET_URL=http://127.0.0.1:8000 FLOW_PATHS='/,/health' bash scripts/run-locust.sh
 ```
 
-The launchers require explicit authorization, limit concurrency to 10 users and duration to 120 seconds, and pace requests. Set `VUS`/`USERS`, `DURATION`/`RUN_TIME`, and `FLOW_PATHS` only within the confirmed envelope. The k6 template aborts when its error-rate threshold is exceeded; Locust stops on HTTP 429 or 5xx. Do not bypass these bounds or run a wider test without renewed approval. If a journey needs authentication or writes, adapt it only for an isolated test environment and use test-only identities/data; never hard-code secrets.
+The launchers require explicit authorization and an exact target allowlist match, limit concurrency to 10 users and duration to 120 seconds, and pace requests. The Locust templates also enforce a standalone-local-runner limit of 10 users, exact runtime-host matching, and an automatic 120-second stop when launched directly. Set `VUS`/`USERS`, `DURATION`/`RUN_TIME`, and `FLOW_PATHS` only within the confirmed envelope. The k6 template aborts when its HTTP failure-rate threshold is exceeded; Locust stops on HTTP 429 or 5xx. Do not bypass these bounds or run a wider test without renewed approval. For checkout/auth, select `LOCUST_TEMPLATE=checkout-auth` and satisfy every test-mode guard; use only unique pre-seeded test accounts and a verified sandbox endpoint.
+
+### Parse test results
+
+Use `python scripts/summarize_results.py <json-file>` to convert a k6 summary export, k6 JSON-lines output, or compatible Locust `/stats/requests` JSON into Markdown. Specify `--format k6` or `--format locust` only when auto-detection is ambiguous; write with `--output report.md`. Treat missing fields as unavailable, not zero. Read the parser output alongside monitoring metrics and the test scope before drawing conclusions.
 
 ### 5. Establish baseline and monitor
 

@@ -11,8 +11,10 @@ BUNDLE_FILES = (
     "SKILL.md",
     "scripts/k6/user-flow.js",
     "scripts/locust/locustfile.py",
+    "scripts/locust/checkout_auth_flow.py",
     "scripts/run-k6.sh",
     "scripts/run-locust.sh",
+    "scripts/summarize_results.py",
 )
 
 

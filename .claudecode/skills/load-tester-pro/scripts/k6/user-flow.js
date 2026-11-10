@@ -2,6 +2,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 const BASE_URL = (__ENV.TARGET_BASE_URL || "").replace(/\/$/, "");
+const APPROVED_URL = (__ENV.APPROVED_TARGET_URL || "").replace(/\/$/, "");
 const AUTHORIZED = __ENV.LOAD_TEST_AUTHORIZED === "YES";
 const VUS = Number.parseInt(__ENV.VUS || "1", 10);
 const DURATION = __ENV.DURATION || "30s";
@@ -21,6 +22,7 @@ function validateTarget(value) {
 }
 
 if (!AUTHORIZED) throw new Error("Refusing to send traffic: set LOAD_TEST_AUTHORIZED=YES only after the owner has approved this exact target and test scope.");
+if (!APPROVED_URL || BASE_URL !== APPROVED_URL) throw new Error("Refusing to send traffic: TARGET_BASE_URL must exactly match APPROVED_TARGET_URL.");
 if (!validateTarget(BASE_URL)) throw new Error("Set TARGET_BASE_URL to an http(s) origin/path without embedded credentials.");
 if (!Number.isInteger(VUS) || VUS < 1 || VUS > 10) throw new Error("VUS must be an integer from 1 to 10.");
 if (secondsFromDuration(DURATION) < 1 || secondsFromDuration(DURATION) > 120) throw new Error("DURATION must be 1s–120s (for example 30s or 2m).");

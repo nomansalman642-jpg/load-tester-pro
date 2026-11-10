@@ -60,6 +60,7 @@ After the owner explicitly approves the exact target and test scope, a one-user,
 ```bash
 LOAD_TEST_AUTHORIZED=YES \
 TARGET_BASE_URL=http://127.0.0.1:8000 \
+APPROVED_TARGET_URL=http://127.0.0.1:8000 \
 FLOW_PATHS='/,/health' \
 bash scripts/run-k6.sh
 ```
@@ -68,6 +69,7 @@ For an explicitly approved five-user, one-minute test within the built-in ceilin
 
 ```bash
 LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 \
+APPROVED_TARGET_URL=http://127.0.0.1:8000 \
 FLOW_PATHS='/,/products' VUS=5 DURATION=60s bash scripts/run-k6.sh
 ```
 
@@ -78,14 +80,67 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install locust
 LOAD_TEST_AUTHORIZED=YES TARGET_BASE_URL=http://127.0.0.1:8000 \
+APPROVED_TARGET_URL=http://127.0.0.1:8000 \
 FLOW_PATHS='/,/products' USERS=1 RUN_TIME=30s bash scripts/run-locust.sh
 ```
 
-The launchers reject missing authorization, non-HTTP(S) targets, embedded URL credentials, more than 10 users, and durations over 120 seconds. k6 aborts when its HTTP failure-rate threshold is exceeded; Locust quits on HTTP 429 or 5xx. These safeguards are not a substitute for explicit authorization or monitoring. Never run these examples against a URL you do not own or have permission to test. Do not put passwords/tokens in the URL or commit them. If an app flow needs authentication or writes, adapt the test specifically for isolated test data and a safe test environment.
+The launchers require `TARGET_BASE_URL` to match `APPROVED_TARGET_URL` exactly; they reject missing authorization, non-HTTP(S) targets, embedded URL credentials, more than 10 users, and durations over 120 seconds. Locust templates additionally check the runtime host, reject distributed runs, enforce a 10-user maximum, and stop after 120 seconds even when called directly. k6 aborts when its HTTP failure-rate threshold is exceeded; Locust quits on HTTP 429 or 5xx. These safeguards are not a substitute for explicit authorization or monitoring. Never run these examples against a URL you do not own or have permission to test. Do not put passwords/tokens in the URL or commit them.
+
+## Custom checkout and authentication flow
+
+`scripts/locust/checkout_auth_flow.py` demonstrates a JSON-API journey: authenticate a unique pre-seeded test user, read a product, add it to a test cart, create a test checkout, and call a **test-only** payment endpoint. This flow performs writes. Do not use it against production, live payments, real customer data, or an external payment processor. Before use, customize its endpoint paths and payloads for the app's test API and verify that the payment endpoint is a mock/sandbox route.
+
+Use only an explicitly approved local/staging URL, dedicated disposable accounts, and credentials injected from a secret manager or the environment (never commit or print them). Each simulated user needs a unique pre-seeded account matching `TEST_USERNAME_TEMPLATE`, such as `lt-user-{user_id}@example.test`.
+
+```bash
+# TEST_PASSWORD and PAYMENT_TEST_TOKEN must already be supplied securely.
+LOAD_TEST_AUTHORIZED=YES \
+TARGET_ENV=staging \
+TARGET_BASE_URL=https://staging.example.test \
+APPROVED_TARGET_URL=https://staging.example.test \
+ALLOW_TEST_WRITES=YES \
+PAYMENT_TEST_MODE=YES \
+LOCUST_TEMPLATE=checkout-auth \
+TEST_USERNAME_TEMPLATE='lt-user-{user_id}@example.test' \
+TEST_PASSWORD="$TEST_PASSWORD" \
+PAYMENT_TEST_TOKEN="$PAYMENT_TEST_TOKEN" \
+CHECKOUT_SKU=demo-sku \
+USERS=2 RUN_TIME=30s \
+bash scripts/run-locust.sh
+```
+
+Checkout mode refuses targets that do not exactly match the approved URL, environments other than `local`/`staging`, hostnames marked `prod`/`production`/`live`, missing test-write or payment-test flags, absent sandbox credentials, and payment paths that do not identify a test endpoint. The flow creates at most one checkout per virtual user per run. Review the template and the application's sandbox configuration before enabling it.
+
+## Turn raw JSON results into a Markdown report
+
+For k6, export an aggregate summary or newline-delimited JSON points. The guarded launcher accepts `SUMMARY_FILE` to save the aggregate JSON:
+
+```bash
+LOAD_TEST_AUTHORIZED=YES \
+TARGET_BASE_URL=http://127.0.0.1:8000 \
+APPROVED_TARGET_URL=http://127.0.0.1:8000 \
+FLOW_PATHS='/,/health' SUMMARY_FILE=results/k6-summary.json \
+bash scripts/run-k6.sh
+python scripts/summarize_results.py results/k6-summary.json --output results/k6-report.md
+```
+
+For Locust, give the parser a compatible request-stat JSON export (for example, a saved response from `/stats/requests`):
+
+```bash
+python scripts/summarize_results.py results/locust-stats.json --format locust --output results/locust-report.md
+```
+
+The parser also accepts k6 JSON-lines output and auto-detects supported formats. It reports requests, failures, throughput, latency percentiles, endpoints, and available error details. Metrics absent from the source are shown as `N/A`, not guessed. Review the source format and monitoring data before using the summary to make capacity claims.
 
 ## GitHub Actions validation
 
-`.github/workflows/validate-skill.yml` runs on every push and pull request. It validates skill frontmatter, checks that all seven agent bundles and their scripts match the canonical files, and checks Python, shell, and JavaScript syntax. This is static repository validation: it does not send traffic to an app or prove that a target can handle load.
+`.github/workflows/validate-skill.yml` runs on every push and pull request. It validates skill frontmatter, checks that all seven agent bundles and their scripts match the canonical files, checks Python/shell/JavaScript syntax, and runs unit tests for the report parser and safety guardrails. This is static/unit validation: it does not send traffic to an app or prove that a target can handle load.
+
+Run the same unit suite locally with:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## What it does
 
@@ -94,6 +149,8 @@ The launchers reject missing authorization, non-HTTP(S) targets, embedded URL cr
 - Creates a staged plan from a one-user smoke test through an explicitly approved load/stress scenario.
 - Uses the validated critical journey as a realistic, paced load scenario when safe.
 - Prefers existing tools; otherwise suggests tools such as k6 or Locust.
+- Includes a guarded Locust authentication/checkout test-mode template and a k6/Locust JSON-to-Markdown report parser.
+- Unit tests verify authorization, exact target allowlisting, load ceilings, and checkout test-mode gates without sending network traffic.
 - Reports latency percentiles, throughput, failures, monitoring limits, and prioritized remediation.
 - Can add a CI smoke test only when requested and against a dedicated test environment.
 
